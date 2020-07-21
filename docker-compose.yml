@@ -1,0 +1,33 @@
+version: '3.1'
+
+services:
+  db:
+    image: mysql:5.6
+    volumes:
+      - ./db/install_db.sql:/install_db.sql
+    command: mysqld --init-file="/install_db.sql"
+    restart: always
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080
+    depends_on:
+      - db
+
+  service:
+    build: ./
+    environment:
+      PORT: 9000
+      CONNECTOR_TYPE: postgres
+    network_mode: host
+    ports:
+      - "9000:9000"
+    depends_on:
+      - adminer
+      - db
