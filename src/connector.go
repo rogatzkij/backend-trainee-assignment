@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// Интерфейс описывает работу с хранилищем данных
 type Connector interface {
 	createUser(username string) (User, error)
 	checkUsername(username string) (bool, error)
@@ -19,13 +20,13 @@ type Connector interface {
 
 func NewConnector(controllerType string) (Connector, error) {
 	switch strings.ToLower(controllerType) {
-	case "postgressql", "postgres_sql", "postgres":
-		config, err := initConfigPostgresSQL()
+	case "mysql":
+		config, err := initConfigMySQL()
 		if err != nil {
 			return nil, err
 		}
 
-		return &ConnectorPostgresSQL{config: config}, nil
+		return &ConnectorMySQL{config: config}, nil
 	default:
 		return nil, fmt.Errorf("неизвестный коннектор %s", controllerType)
 	}

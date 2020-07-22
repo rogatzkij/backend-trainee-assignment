@@ -24,7 +24,7 @@ services:
     build: ./
     environment:
       PORT: 9000
-      CONNECTOR_TYPE: postgres
+      CONNECTOR_TYPE: mysql
     network_mode: host
     ports:
       - "9000:9000"
