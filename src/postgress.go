@@ -8,7 +8,7 @@ import (
 import "database/sql"
 import _ "github.com/go-sql-driver/mysql"
 
-type ConfigPostgresSQL struct {
+type ConfigMySQL struct {
 	Login    string `default:"root"`
 	Password string `default:"password"`
 	Host     string `default:"127.0.0.1"`
@@ -16,9 +16,9 @@ type ConfigPostgresSQL struct {
 	Database string `default:"chat"`
 }
 
-func initConfigPostgresSQL() (*ConfigPostgresSQL, error) {
-	config := &ConfigPostgresSQL{}
-	err := envconfig.Process("PostgresSQL", config)
+func initConfigMySQL() (*ConfigMySQL, error) {
+	config := &ConfigMySQL{}
+	err := envconfig.Process("MySQL", config)
 	if err != nil {
 		return nil, err
 	}
@@ -26,12 +26,12 @@ func initConfigPostgresSQL() (*ConfigPostgresSQL, error) {
 	return config, nil
 }
 
-type ConnectorPostgresSQL struct {
-	config *ConfigPostgresSQL
+type ConnectorMySQL struct {
+	config *ConfigMySQL
 	db     *sql.DB
 }
 
-func (cp *ConnectorPostgresSQL) connect() error {
+func (cp *ConnectorMySQL) connect() error {
 	sourceAddr := fmt.Sprintf("%s:%s@/%s", cp.config.Login, cp.config.Password, cp.config.Database)
 	db, err := sql.Open("mysql", sourceAddr)
 	if err != nil {
@@ -42,7 +42,7 @@ func (cp *ConnectorPostgresSQL) connect() error {
 	return nil
 }
 
-func (cp *ConnectorPostgresSQL) createUser(username string) (User, error) {
+func (cp *ConnectorMySQL) createUser(username string) (User, error) {
 	if cp.db == nil {
 		if err := cp.connect(); err != nil {
 			return User{}, err
@@ -71,7 +71,7 @@ func (cp *ConnectorPostgresSQL) createUser(username string) (User, error) {
 	return user, nil
 }
 
-func (cp *ConnectorPostgresSQL) checkUsername(username string) (bool, error) {
+func (cp *ConnectorMySQL) checkUsername(username string) (bool, error) {
 	if cp.db == nil {
 		if err := cp.connect(); err != nil {
 			return false, err
@@ -90,7 +90,7 @@ func (cp *ConnectorPostgresSQL) checkUsername(username string) (bool, error) {
 	return false, nil
 }
 
-func (cp *ConnectorPostgresSQL) checkUserID(user uint64) (bool, error) {
+func (cp *ConnectorMySQL) checkUserID(user uint64) (bool, error) {
 	if cp.db == nil {
 		if err := cp.connect(); err != nil {
 			return false, err
@@ -109,7 +109,7 @@ func (cp *ConnectorPostgresSQL) checkUserID(user uint64) (bool, error) {
 	return false, nil
 }
 
-func (cp *ConnectorPostgresSQL) createChart(name string, users []uint64) (Chat, error) {
+func (cp *ConnectorMySQL) createChart(name string, users []uint64) (Chat, error) {
 	if cp.db == nil {
 		if err := cp.connect(); err != nil {
 			return Chat{}, err
@@ -142,7 +142,7 @@ func (cp *ConnectorPostgresSQL) createChart(name string, users []uint64) (Chat, 
 	return chat, nil
 }
 
-func (cp *ConnectorPostgresSQL) checkChartName(name string) (bool, error) {
+func (cp *ConnectorMySQL) checkChartName(name string) (bool, error) {
 	if cp.db == nil {
 		if err := cp.connect(); err != nil {
 			return false, err
@@ -161,7 +161,7 @@ func (cp *ConnectorPostgresSQL) checkChartName(name string) (bool, error) {
 	return false, nil
 }
 
-func (cp *ConnectorPostgresSQL) checkChartID(chat uint64) (bool, error) {
+func (cp *ConnectorMySQL) checkChartID(chat uint64) (bool, error) {
 	if cp.db == nil {
 		if err := cp.connect(); err != nil {
 			return false, err
@@ -180,7 +180,7 @@ func (cp *ConnectorPostgresSQL) checkChartID(chat uint64) (bool, error) {
 	return false, nil
 }
 
-func (cp *ConnectorPostgresSQL) getCharts(user uint64) ([]Chat, error) {
+func (cp *ConnectorMySQL) getCharts(user uint64) ([]Chat, error) {
 	querry := `SELECT
 E2_Chat.id,
 E2_Chat.name
@@ -225,7 +225,7 @@ WHERE E3C.id_user = ?`
 	return result, nil
 }
 
-func (cp *ConnectorPostgresSQL) sendMessage(chatID uint64, authorID uint64, text string) (Message, error) {
+func (cp *ConnectorMySQL) sendMessage(chatID uint64, authorID uint64, text string) (Message, error) {
 	if cp.db == nil {
 		if err := cp.connect(); err != nil {
 			return Message{}, err
@@ -252,8 +252,7 @@ func (cp *ConnectorPostgresSQL) sendMessage(chatID uint64, authorID uint64, text
 	return message, nil
 }
 
-//
-func (cp *ConnectorPostgresSQL) getMessages(chatID uint64) ([]Message, error) {
+func (cp *ConnectorMySQL) getMessages(chatID uint64) ([]Message, error) {
 	if cp.db == nil {
 		if err := cp.connect(); err != nil {
 			return nil, err

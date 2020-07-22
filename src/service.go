@@ -12,12 +12,14 @@ import (
 	"time"
 )
 
+// Объект описывающий сервис
 type Service struct {
 	config    *Config
 	connector Connector
 	server    http.Server
 }
 
+// Запуск сервиса
 func (s *Service) Start() {
 	go func() {
 		log.Info().Str("Host", s.config.Host).Int("Port", s.config.Port).Msg("Сервис запущен")
@@ -27,6 +29,7 @@ func (s *Service) Start() {
 	}()
 }
 
+// Остановка сервиса
 func (s *Service) Stop() {
 	log.Info().Msg("Сервис закрывается...")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5)*time.Second)
@@ -37,6 +40,7 @@ func (s *Service) Stop() {
 	log.Info().Msg("Сервис закрыт")
 }
 
+// Создание нового экземпляра сервиса
 func NewService(config *Config, controller Connector) *Service {
 	service := &Service{
 		config:    config,
@@ -51,12 +55,14 @@ func NewService(config *Config, controller Connector) *Service {
 	return service
 }
 
+// Конфигурация сервиса
 type Config struct {
 	Port          int    `default:"9000"`
 	Host          string `default:""`
-	ConnectorType string `split_words:"true" default:"postgres"`
+	ConnectorType string `split_words:"true" default:"mysql"`
 }
 
+// Инициализация настроек сервиса
 func InitConfig() (*Config, error) {
 	config := &Config{}
 	err := envconfig.Process("", config)
@@ -67,10 +73,9 @@ func InitConfig() (*Config, error) {
 	return config, nil
 }
 
+// Инициализация роутера сервиса
 func (s *Service) initRouter() *mux.Router {
 	router := mux.NewRouter()
-
-	router.HandleFunc("/", s.createUser).Methods(http.MethodPost)
 
 	userRouter := router.PathPrefix("/users").Subrouter()
 	userRouter.HandleFunc("/add", s.createUser).Methods(http.MethodPost)
@@ -83,19 +88,36 @@ func (s *Service) initRouter() *mux.Router {
 	messagesRouter.HandleFunc("/add", s.sendMessage).Methods(http.MethodPost)
 	messagesRouter.HandleFunc("/get", s.getMessages).Methods(http.MethodPost)
 
+	router.Use(LogMiddleware)
+
 	return router
 }
 
+// Миделвара логирования
+func LogMiddleware(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Info().
+			Str("path", r.URL.Path).
+			Str("remote addr", r.RemoteAddr).
+			Str("user agent", r.UserAgent()).
+			Msg("Поступил запрос")
+
+		h.ServeHTTP(w, r)
+	})
+}
+
+// Код ошибок при ответе
 type ErrorCodeType int
 
 const (
-	AlreadyExist ErrorCodeType = iota
-	NotExist
+	AlreadyExist ErrorCodeType = iota // сущность уже существует
+	NotExist                          // сущность не существует
 )
 
+// Тело ответа в случае ошибки
 type ErrorResponse struct {
-	ErrorCode   ErrorCodeType `json:"code"`
-	Description string        `json:"description"`
+	ErrorCode   ErrorCodeType `json:"code"`        // код ошибки
+	Description string        `json:"description"` // описание ошибки
 }
 
 // Добавить нового пользователя
@@ -239,14 +261,27 @@ func (s *Service) createChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Создаем чат
-	_, err = s.connector.createChart(requestBody.Name, requestBody.Users)
+	chat, err := s.connector.createChart(requestBody.Name, requestBody.Users)
 	if err != nil {
 		log.Warn().Err(err).Msg("Не удалось создать чат")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	responseBody := struct {
+		ID uint64 `json:"id"`
+	}{
+		ID: chat.ID,
+	}
+
+	body, err = json.Marshal(responseBody)
+	if err != nil {
+		log.Warn().Err(err).Msg("Не удалось замаршалить ответ")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	w.Write(body)
 }
 
 // Отправить сообщение в чат от лица пользователя
@@ -322,14 +357,27 @@ func (s *Service) sendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Отправляем сообщение
-	_, err = s.connector.sendMessage(requestBody.ChatID, requestBody.UserID, requestBody.Text)
+	msg, err := s.connector.sendMessage(requestBody.ChatID, requestBody.UserID, requestBody.Text)
 	if err != nil {
-		log.Warn().Err(err).Msg("Не удалось создать чат")
+		log.Warn().Err(err).Msg("Не удалось отправить сообщение")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	responseBody := struct {
+		ID uint64 `json:"id"`
+	}{
+		ID: msg.ID,
+	}
+
+	body, err = json.Marshal(responseBody)
+	if err != nil {
+		log.Warn().Err(err).Msg("Не удалось замаршалить ответ")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	w.Write(body)
 }
 
 // Получить список чатов конкретного пользователя
