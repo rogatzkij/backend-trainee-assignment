@@ -112,6 +112,7 @@ type ErrorCodeType int
 const (
 	AlreadyExist ErrorCodeType = iota // сущность уже существует
 	NotExist                          // сущность не существует
+	EmptyFields                       // задан пустой параметр
 )
 
 // Тело ответа в случае ошибки
@@ -140,6 +141,25 @@ func (s *Service) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Проверка полей
+	if requestBody.Username == "" {
+		responseBody := ErrorResponse{
+			ErrorCode:   EmptyFields,
+			Description: fmt.Sprintf("Не задано имя пльзователя"),
+		}
+
+		body, err = json.Marshal(responseBody)
+		if err != nil {
+			log.Warn().Err(err).Msg("Не удалось замаршалить ответ")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(body)
+		return
+	}
+
+	// Проверяем существование пользователей
 	isExist, err := s.connector.checkUsername(requestBody.Username)
 	if err != nil {
 		log.Warn().Err(err).Msg("Не удалось проверить пользователя")
@@ -164,6 +184,7 @@ func (s *Service) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Создаем нового пользователя
 	user, err := s.connector.createUser(requestBody.Username)
 	if err != nil {
 		log.Warn().Err(err).Msg("Не удалось создать пользователя")
@@ -205,6 +226,24 @@ func (s *Service) createChat(w http.ResponseWriter, r *http.Request) {
 	if err := json.Unmarshal(body, &requestBody); err != nil {
 		log.Warn().Err(err).Msg("Не удалось анмаршалить тело")
 		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// Проверка полей
+	if requestBody.Name == "" || len(requestBody.Users) == 0 {
+		responseBody := ErrorResponse{
+			ErrorCode:   EmptyFields,
+			Description: fmt.Sprintf("Не задано название чата или не указаны участники"),
+		}
+
+		body, err = json.Marshal(responseBody)
+		if err != nil {
+			log.Warn().Err(err).Msg("Не удалось замаршалить ответ")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(body)
 		return
 	}
 
@@ -303,6 +342,24 @@ func (s *Service) sendMessage(w http.ResponseWriter, r *http.Request) {
 	if err := json.Unmarshal(body, &requestBody); err != nil {
 		log.Warn().Err(err).Msg("Не удалось анмаршалить тело")
 		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// Проверка полей
+	if requestBody.Text == "" {
+		responseBody := ErrorResponse{
+			ErrorCode:   EmptyFields,
+			Description: fmt.Sprintf("Не задан текст сообщения"),
+		}
+
+		body, err = json.Marshal(responseBody)
+		if err != nil {
+			log.Warn().Err(err).Msg("Не удалось замаршалить ответ")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(body)
 		return
 	}
 
